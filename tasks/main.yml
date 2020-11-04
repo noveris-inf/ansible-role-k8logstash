@@ -1,0 +1,81 @@
+---
+
+- name: Create logstash config directory
+  command: "mkdir -p {{ logstash_config_dir }}"
+
+- name: logstash location
+  file:
+    state: directory
+    path: "{{ logstash_config_dir }}"
+    owner: "root"
+    group: "root"
+    mode: 0755
+
+- name: Read logstash cert
+  slurp:
+    src: "{{ logstash_cert_file }}"
+  register: logstash_cert_data
+
+- name: Read logstash key
+  slurp:
+    src: "{{ logstash_key_file }}"
+  register: logstash_key_data
+
+- name: Read CA file
+  slurp:
+    src: "{{ logstash_ca_file }}"
+  register: logstash_ca_data
+
+- name: Clear logstash pipeline directory
+  file:
+    path: "{{ logstash_config_dir }}/pipeline"
+    state: absent
+
+- name: Clear logstash pipeline directory
+  file:
+    path: "{{ logstash_config_dir }}/pipeline"
+    state: directory
+
+- name: Copy logstash pipeline
+  copy:
+    src: "{{ item }}"
+    dest: "{{ logstash_config_dir }}/pipeline/"
+    owner: root
+    group: root
+  with_fileglob: "{{ logstash_pipeline_dir }}/*"
+
+- name: Create pipeline config map
+  shell: "kubectl create configmap logstash-pipeline --dry-run=client -n {{ logstash_namespace }} -o yaml --from-file {{ logstash_config_dir }}/pipeline > {{ logstash_config_dir }}/pipeline.yml"
+
+- name: Get pipeline config SHA sum
+  stat:
+    checksum_algorithm: sha256
+    path: "{{ logstash_config_dir }}/pipeline.yml"
+  register: pipeline_sha_sum
+
+- name: Copy logstash triggers
+  template:
+    src: logstash_triggers.yml.j2
+    dest: "{{ logstash_config_dir }}/logstash_triggers.yml"
+    owner: root
+    group: root
+    mode: 0640
+
+- name: Get trigger SHA sum
+  stat:
+    checksum_algorithm: sha256
+    path: "{{ logstash_config_dir }}/logstash_triggers.yml"
+  register: trigger_sha_sum
+
+- name: Copy logstash config
+  template:
+    src: logstash.yml.j2
+    dest: "{{ logstash_config_dir }}/logstash.yml"
+    owner: root
+    group: root
+    mode: 0640
+
+- name: Apply logstash resources
+  command: "kubectl apply -f {{ logstash_config_dir }}/pipeline.yml -f {{ logstash_config_dir }}/logstash_triggers.yml -f {{ logstash_config_dir }}/logstash.yml"
+
+...

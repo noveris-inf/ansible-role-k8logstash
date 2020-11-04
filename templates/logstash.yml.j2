@@ -1,0 +1,105 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: logstash-svc
+  namespace: {{ logstash_namespace }}
+  labels:
+    app: logstash-app
+spec:
+  selector:
+    app: logstash-app
+  type: ClusterIP
+  ports:
+    - protocol: TCP
+      port: 5044
+      targetPort: 5044
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: logstash-ss
+  namespace: {{ logstash_namespace }}
+  labels:
+    app: logstash-app
+spec:
+  serviceName: "logstash-svc"
+  replicas: {{ logstash_replicas }}
+  selector:
+    matchLabels:
+      app: logstash-app
+  template:
+    metadata:
+      namespace: {{ logstash_namespace }}
+      annotations:
+        triggerHash: "{{ trigger_sha_sum['stat']['checksum'] }}"
+        pipelineHash: "{{ pipeline_sha_sum['stat']['checksum'] }}"
+      labels:
+        app: logstash-app
+    spec:
+      tolerations:
+{% if logstash_tolerate_master | default(false) %}
+        - key: node-role.kubernetes.io/master
+          operator: Exists
+          effect: NoSchedule
+{% endif %}
+      volumes:
+        - name: logstash-cert
+          secret:
+            secretName: logstash-cert
+        - name: logstash-pipeline
+          configMap:
+            name: logstash-pipeline
+      containers:
+        - name: logstash
+          image: {{ logstash_image_ref }}
+          env:
+            - name: ES_JAVA_OPTS
+              value: "-Xms{{ logstash_heap_size }} -Xmx{{ logstash_heap_size }}"
+            - name: XPACK_MONITORING_ELASTICSEARCH_HOSTS
+              value: "[\"https://elastic-svc:9200\"]"
+            - name: XPACK_MONITORING_ELASTICSEARCH_SSL_CERTIFICATE_AUTHORITY
+              value: /usr/share/logstash/certs/ca.crt
+            - name: XPACK_MONITORING_ELASTICSEARCH_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: logstash-elastic-cred
+                  key: user
+            - name: XPACK_MONITORING_ELASTICSEARCH_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: logstash-elastic-cred
+                  key: pass
+            - name: LOGSTASH_ESUSERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: logstash-elastic-cred
+                  key: user
+            - name: LOGSTASH_ESPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: logstash-elastic-cred
+                  key: pass
+          ports:
+            - containerPort: 5044
+          volumeMounts:
+            - name: logstash-pvc
+              mountPath: /usr/share/logstash/data
+            - name: logstash-cert
+              mountPath: /usr/share/logstash/certs/
+              readOnly: true
+            - name: logstash-pipeline
+              mountPath: /usr/share/logstash/pipeline/
+              readOnly: true
+  volumeClaimTemplates:
+    - metadata:
+        name: logstash-pvc
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        storageClassName: "{{ logstash_storageclass }}"
+        resources:
+          requests:
+            storage: {{ logstash_storagesize }}
+        selector:
+          matchLabels:
+            app: logstash-app
