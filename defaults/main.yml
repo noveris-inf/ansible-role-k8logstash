@@ -6,7 +6,7 @@ logstash_replicas: 3
 logstash_tolerate_master: false
 #logstash_cert_file:
 #logstash_key_file:
-logstash_image_ref: "docker.elastic.co/logstash/logstash:7.9.0"
+logstash_image_ref: "docker.elastic.co/logstash/logstash:7.12.0"
 logstash_storageclass: "local-sc"
 logstash_storagesize: "10Gi"
 #logstash_pipeline_dir:
