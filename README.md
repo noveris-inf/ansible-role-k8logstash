@@ -1,3 +1,3 @@
-# ansible-role-k8logstash
+# ansible-role-kube-logstash
 
-[![Latest](https://github.com/noveris-inf/ansible-role-k8logstash/workflows/Latest/badge.svg)](https://github.com/noveris-inf/ansible-role-k8logstash/actions?query=workflow%3ALatest) [![Versioned](https://github.com/noveris-inf/ansible-role-k8logstash/workflows/Versioned/badge.svg)](https://github.com/noveris-inf/ansible-role-k8logstash/actions?query=workflow%3AVersioned)
+[![latest](https://github.com/archmachina/ansible-role-kube-logstash/workflows/latest/badge.svg)](https://github.com/archmachina/ansible-role-kube-logstash/actions?query=workflow%3Alatest)
